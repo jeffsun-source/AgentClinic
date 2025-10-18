@@ -379,7 +379,7 @@ class ScenarioLoaderNEJM:
 
 
 class PatientAgent:
-    def __init__(self, scenario, backend_str="gpt4", bias_present=None) -> None:
+    def __init__(self, scenario, backend_str="gpt4", bias_present=None, patient_tonality = "base") -> None:
         # disease of patient, or "correct answer"
         self.disease = ""
         # symptoms that patient presents
@@ -394,6 +394,7 @@ class PatientAgent:
         self.scenario = scenario
         self.reset()
         self.pipe = None
+        self.p_t =patient_tonality
 
         self.biases = ["recency", "frequency", "false_consensus", "self_diagnosis", "gender", "race", "sexual_orientation", "cultural", "education", "religion", "socioeconomic"]
 
@@ -440,9 +441,17 @@ class PatientAgent:
         bias_prompt = ""
         if self.bias_present is not None:
             bias_prompt = self.generate_bias()
-        base = """You are a patient in a clinic who only responds in the form of dialogue. You are being inspected by a doctor who will ask you questions and will perform exams on you in order to understand your disease. Your answer will only be 1-3 sentences in length."""
-        symptoms = "\n\nBelow is all of your information. {}. \n\n Remember, you must not reveal your disease explicitly but may only convey the symptoms you have in the form of dialogue if you are asked.".format(self.symptoms)
-        return base + bias_prompt + symptoms
+        
+        if self.p_t == "base":
+          base1 = """You are a patient in a clinic who only responds in the form of dialogue. You are being inspected by a doctor who will ask you questions and will perform exams on you in order to understand your disease. Your answer will only be 1-3 sentences in length."""
+          symptoms1 = "\n\nBelow is all of your information. {}. \n\n Remember, you must not reveal your disease explicitly but may only convey the symptoms you have in the form of dialogue if you are asked.".format(self.symptoms)
+        elif self.p_t == "assertive":
+          base1 = """You are a patient in a clinic who only responds in the form of dialogue. You are being inspected by a doctor who will ask you questions and will perform exams on you in order to understand your disease. Your answer will only be 1-3 sentences in length and constitute of sentences that start with I."""
+          symptoms1 = "\n\nBelow is all of your information. {}. \n\n Remember, you must not reveal your disease explicitly but may only convey the symptoms you have in the form of dialogue if you are asked. You should place emphasis on certain symptoms more by using analogical statements in your sentences".format(self.symptoms)
+        elif self.p_t == "tentative": 
+          base1 = """You are a patient in a clinic who only responds in the form of dialogue. You are being inspected by a doctor who will ask you questions and will perform exams on you in order to understand your disease. You are very nervous and will only answer questions tentatively with uncertain responses."""
+          symptoms1 = "\n\nBelow is all of your information. {}. \n\n Remember, you must not reveal your disease explicitly but may only convey the symptoms you have in the form of dialogue if you are asked. Your symptoms should be mixed with your feelings and reflect a feeling of uncertainty you have as a patient who doesn’t know their ailment".format(self.symptoms)
+        return base1 + bias_prompt + symptoms1
     
     def reset(self) -> None:
         self.agent_hist = ""
@@ -453,7 +462,7 @@ class PatientAgent:
 
 
 class DoctorAgent:
-    def __init__(self, scenario, backend_str="gpt4", max_infs=20, bias_present=None, img_request=False) -> None:
+    def __init__(self, scenario, backend_str="gpt4", max_infs=20, bias_present=None, img_request=False, doctor_tonality="base") -> None:
         # number of inference calls to the doctor
         self.infs = 0
         # maximum number of inference calls to the doctor
@@ -472,6 +481,7 @@ class DoctorAgent:
         self.pipe = None
         self.img_request = img_request
         self.biases = ["recency", "frequency", "false_consensus", "confirmation", "status_quo", "gender", "race", "sexual_orientation", "cultural", "education", "religion", "socioeconomic"]
+        self.d_t = doctor_tonality
 
     def generate_bias(self) -> str:
         """ 
@@ -521,9 +531,14 @@ class DoctorAgent:
         bias_prompt = ""
         if self.bias_present is not None:
             bias_prompt = self.generate_bias()
-        base = "You are a doctor named Dr. Agent who only responds in the form of dialogue. You are inspecting a patient who you will ask questions in order to understand their disease. You are only allowed to ask {} questions total before you must make a decision. You have asked {} questions so far. You can request test results using the format \"REQUEST TEST: [test]\". For example, \"REQUEST TEST: Chest_X-Ray\". Your dialogue will only be 1-3 sentences in length. Once you have decided to make a diagnosis please type \"DIAGNOSIS READY: [diagnosis here]\"".format(self.MAX_INFS, self.infs) + ("You may also request medical images related to the disease to be returned with \"REQUEST IMAGES\"." if self.img_request else "")
+        if self.d_t == "base":
+          base1 = "You are a doctor named Dr. Agent who only responds in the form of dialogue. You are inspecting a patient who you will ask questions in order to understand their disease. You are only allowed to ask {} questions total before you must make a decision. Ask in a gentle, tentative tone, giving the patient space and reassurance and avoiding pressure while inviting them to share only what they feel comfortable describing. You have asked {} questions so far. You can request test results using the format \"REQUEST TEST: [test]\". For example, \"REQUEST TEST: Chest_X-Ray\". Your dialogue will only be 1-3 sentences in length. Once you have decided to make a diagnosis please type \"DIAGNOSIS READY: [diagnosis here]\"".format(self.MAX_INFS, self.infs) + ("You may also request medical images related to the disease to be returned with \"REQUEST IMAGES\"." if self.img_request else "")
+        elif self.d_t == "assertive":
+          base1 = "You are a doctor named Dr. Agent who only responds in the form of dialogue. You are inspecting a patient who you will ask questions in order to understand their disease. You are only allowed to ask {} questions total before you must make a decision. Ask in a confident, authoritative tone, pressing the patient directly for clear answers and more description. You have asked {} questions so far. You can request test results using the format \"REQUEST TEST: [test]\". For example, \"REQUEST TEST: Chest_X-Ray\". Your dialogue will only be 1-3 sentences in length. Once you have decided to make a diagnosis please type \"DIAGNOSIS READY: [diagnosis here]\"".format(self.MAX_INFS, self.infs) + ("You may also request medical images related to the disease to be returned with \"REQUEST IMAGES\"." if self.img_request else "")
+        elif self.d_t == "tentative":
+          base1 = "You are a doctor named Dr. Agent who only responds in the form of dialogue. You are inspecting a patient who you will ask questions in order to understand their disease. You are only allowed to ask {} questions total before you must make a decision. Ask in a gentle, tentative tone, giving the patient space and reassurance and avoiding pressure while inviting them to share only what they feel comfortable describing. You have asked {} questions so far. You can request test results using the format \"REQUEST TEST: [test]\". For example, \"REQUEST TEST: Chest_X-Ray\". Your dialogue will only be 1-3 sentences in length. Once you have decided to make a diagnosis please type \"DIAGNOSIS READY: [diagnosis here]\"".format(self.MAX_INFS, self.infs) + ("You may also request medical images related to the disease to be returned with \"REQUEST IMAGES\"." if self.img_request else "")
         presentation = "\n\nBelow is all of the information you have. {}. \n\n Remember, you must discover their disease by asking them questions. You are also able to provide exams.".format(self.presentation)
-        return base + bias_prompt + presentation
+        return base1 + bias_prompt + presentation
 
     def reset(self) -> None:
         self.agent_hist = ""
@@ -567,7 +582,7 @@ def compare_results(diagnosis, correct_diagnosis, moderator_llm, mod_pipe):
     return answer.lower()
 
 
-def main(api_key, replicate_api_key, inf_type, doctor_bias, patient_bias, doctor_llm, patient_llm, measurement_llm, moderator_llm, num_scenarios, dataset, img_request, total_inferences, anthropic_api_key=None):
+def main(api_key, replicate_api_key, inf_type, tonality_D, tonality_P, doctor_bias, patient_bias, doctor_llm, patient_llm, measurement_llm, moderator_llm, num_scenarios, dataset, img_request, total_inferences, anthropic_api_key=None):
     openai.api_key = api_key
     anthropic_llms = ["claude3.5sonnet"]
     replicate_llms = ["llama-3-70b-instruct", "llama-2-70b-chat", "mixtral-8x7b"]
@@ -609,11 +624,13 @@ def main(api_key, replicate_api_key, inf_type, doctor_bias, patient_bias, doctor
             backend_str=measurement_llm)
         patient_agent = PatientAgent(
             scenario=scenario, 
+	    patient_tonality = tonality_P,
             bias_present=patient_bias,
             backend_str=patient_llm)
         doctor_agent = DoctorAgent(
             scenario=scenario, 
             bias_present=doctor_bias,
+	    doctor_tonality = tonality_D,
             backend_str=doctor_llm,
             max_infs=total_inferences, 
             img_request=img_request)
@@ -664,6 +681,8 @@ if __name__ == "__main__":
     parser.add_argument('--openai_api_key', type=str, required=False, help='OpenAI API Key')
     parser.add_argument('--replicate_api_key', type=str, required=False, help='Replicate API Key')
     parser.add_argument('--inf_type', type=str, choices=['llm', 'human_doctor', 'human_patient'], default='llm')
+    parser.add_argument('--tonality_D', type = str, required = False, choices = ["tentative", "base", "assertive"], default = 'base')
+    parser.add_argument('--tonality_P', type = str, required = False, choices = ["tentative", "base", "assertive"], default = 'base')
     parser.add_argument('--doctor_bias', type=str, help='Doctor bias type', default='None', choices=["recency", "frequency", "false_consensus", "confirmation", "status_quo", "gender", "race", "sexual_orientation", "cultural", "education", "religion", "socioeconomic"])
     parser.add_argument('--patient_bias', type=str, help='Patient bias type', default='None', choices=["recency", "frequency", "false_consensus", "self_diagnosis", "gender", "race", "sexual_orientation", "cultural", "education", "religion", "socioeconomic"])
     parser.add_argument('--doctor_llm', type=str, default='gpt4')
@@ -678,4 +697,4 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    main(args.openai_api_key, args.replicate_api_key, args.inf_type, args.doctor_bias, args.patient_bias, args.doctor_llm, args.patient_llm, args.measurement_llm, args.moderator_llm, args.num_scenarios, args.agent_dataset, args.doctor_image_request, args.total_inferences, args.anthropic_api_key)
+    main(args.openai_api_key, args.replicate_api_key, args.inf_type, args.tonality_D, args.tonality_P, args.doctor_bias, args.patient_bias, args.doctor_llm, args.patient_llm, args.measurement_llm, args.moderator_llm, args.num_scenarios, args.agent_dataset, args.doctor_image_request, args.total_inferences, args.anthropic_api_key)
